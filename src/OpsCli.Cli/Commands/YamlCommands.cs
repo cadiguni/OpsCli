@@ -66,12 +66,17 @@ public static class YamlCommands
                         allValid &= result.Exists && result.IsValid;
                         if (result.Exists && result.IsValid)
                         {
-                            Console.WriteLine($"✓ YAML válido: {yamlFile}");
+                            Console.WriteLine($"[OK] YAML valido: {yamlFile}");
                         }
                         else
                         {
-                            Console.WriteLine($"✗ YAML inválido: {yamlFile}");
-                            Console.WriteLine($"Erro: {result.Message}");
+                            Console.WriteLine(result.Exists
+                                ? $"[FALHA] YAML invalido: {yamlFile}"
+                                : result.Message);
+                            if (result.Exists)
+                            {
+                                Console.WriteLine($"Erro: {result.Message}");
+                            }
                         }
                     }
                 }
@@ -98,12 +103,17 @@ public static class YamlCommands
             var result = await validator.ValidateAsync(file, cancellationToken);
             if (result.Exists && result.IsValid)
             {
-                Console.WriteLine($"✓ YAML válido: {file}");
+                Console.WriteLine($"[OK] YAML valido: {file}");
             }
             else
             {
-                Console.WriteLine($"✗ YAML inválido: {file}");
-                Console.WriteLine($"Erro: {result.Message}");
+                Console.WriteLine(result.Exists
+                    ? $"[FALHA] YAML invalido: {file}"
+                    : result.Message);
+                if (result.Exists)
+                {
+                    Console.WriteLine($"Erro: {result.Message}");
+                }
             }
 
             return result.Exists && result.IsValid ? 0 : 1;

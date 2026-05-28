@@ -25,17 +25,21 @@ public sealed class GitRepositoryService : IRepositoryService
                 continue;
             }
 
-            var processResult = await RunGitAsync(repository.Path, "status --short --branch", cancellationToken);
-            if (processResult.ExitCode != 0)
+            var branchResult = await RunGitAsync(repository.Path, "branch --show-current", cancellationToken);
+            var statusResult = await RunGitAsync(repository.Path, "status --short", cancellationToken);
+            if (branchResult.ExitCode != 0 || statusResult.ExitCode != 0)
             {
-                results.Add(new RepositoryStatus(repository.Name, repository.Path, true, true, string.Empty, false, processResult.Error.Trim()));
+                var gitErrorDetails = string.Join(
+                    Environment.NewLine,
+                    new[] { branchResult.Error.Trim(), statusResult.Error.Trim() }.Where(error => !string.IsNullOrWhiteSpace(error)));
+                results.Add(new RepositoryStatus(repository.Name, repository.Path, true, false, string.Empty, false, gitErrorDetails));
                 continue;
             }
 
-            var lines = processResult.Output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-            var branch = lines.FirstOrDefault()?.Replace("## ", string.Empty, StringComparison.Ordinal).Trim() ?? string.Empty;
-            var hasChanges = lines.Skip(1).Any();
-            var details = hasChanges ? string.Join(Environment.NewLine, lines.Skip(1)) : "Arvore de trabalho limpa.";
+            var branch = branchResult.Output.Trim();
+            var lines = statusResult.Output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+            var hasChanges = lines.Any();
+            var details = hasChanges ? string.Join(Environment.NewLine, lines) : "Arvore de trabalho limpa.";
             results.Add(new RepositoryStatus(repository.Name, repository.Path, true, true, branch, hasChanges, details));
         }
 

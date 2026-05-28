@@ -63,9 +63,9 @@ public static class UrlCommands
                 return 1;
             }
 
-            Console.WriteLine($"Verificação de URLs - {projectName} / {environmentName}");
+            Console.WriteLine($"Verificacao de URLs - {projectName} / {environmentName}");
             Console.WriteLine();
-            Console.WriteLine($"{"URL",-44} {"Status",-10} {"Tempo",-10} Resultado");
+            Console.WriteLine($"{"Nome",-44} {"Status",-10} {"Tempo",-10} Resultado");
 
             var healthCheck = services.GetRequiredService<IUrlHealthCheckService>();
             var allHealthy = true;
@@ -75,7 +75,7 @@ public static class UrlCommands
                 var result = await healthCheck.CheckAsync(url, timeout, cancellationToken);
                 allHealthy &= result.Success;
                 var status = result.StatusCode?.ToString() ?? (result.TimedOut ? "Timeout" : "Falha");
-                var outcome = result.Success ? "✓ OK" : "✗ Falha";
+                var outcome = result.Success ? "[OK]" : "[FALHA]";
                 Console.WriteLine($"{url.Name,-44} {status,-10} {$"{result.ElapsedMilliseconds} ms",-10} {outcome}");
             }
 

@@ -9,14 +9,78 @@ public sealed class ProjectCheckServiceTests
     [Fact]
     public async Task CheckAsync_AggregatesRepositoryYamlAndUrlResults()
     {
-        var project = new ProjectConfiguration
+        var project = CreateProject("C:\\Repos\\api-finops", "pipelines/deploy-dev.yml");
+        var service = new ProjectCheckService(
+            new StubRepositoryService(),
+            new StubYamlValidationService(true),
+            new StubUrlHealthCheckService(true));
+
+        var result = await service.CheckAsync(project, "dev");
+
+        Assert.True(result.Success);
+        Assert.Equal(4, result.TotalChecks);
+        Assert.Equal(4, result.Successes);
+        Assert.Equal(0, result.Failures);
+    }
+
+    [Fact]
+    public async Task CheckAsync_ResolvesRelativeYamlFromRepositoryPath()
+    {
+        var repositoryPath = Path.Combine(Path.GetTempPath(), "opscli-tests", Guid.NewGuid().ToString("N"), "sample-api");
+        var yamlService = new CapturingYamlValidationService(true);
+        var project = CreateProject(repositoryPath, "pipelines/deploy-dev.yml");
+        var service = new ProjectCheckService(
+            new StubRepositoryService(),
+            yamlService,
+            new StubUrlHealthCheckService(true));
+
+        await service.CheckAsync(project, "dev");
+
+        Assert.Equal(
+            Path.GetFullPath(Path.Combine(repositoryPath, "pipelines/deploy-dev.yml")),
+            Path.GetFullPath(yamlService.Paths.Single()));
+    }
+
+    [Fact]
+    public async Task CheckAsync_ReturnsFailureWhenYamlOrUrlFails()
+    {
+        var project = CreateProject("C:\\Repos\\sample-api", "pipelines/deploy-dev.yml");
+        var service = new ProjectCheckService(
+            new StubRepositoryService(),
+            new StubYamlValidationService(false),
+            new StubUrlHealthCheckService(false));
+
+        var result = await service.CheckAsync(project, "dev");
+
+        Assert.False(result.Success);
+        Assert.Equal(2, result.Failures);
+    }
+
+    [Fact]
+    public async Task CheckAsync_ReturnsSuccessWhenAllChecksPass()
+    {
+        var project = CreateProject("C:\\Repos\\sample-api", "pipelines/deploy-dev.yml");
+        var service = new ProjectCheckService(
+            new StubRepositoryService(),
+            new StubYamlValidationService(true),
+            new StubUrlHealthCheckService(true));
+
+        var result = await service.CheckAsync(project, "dev");
+
+        Assert.True(result.Success);
+        Assert.Equal(0, result.Failures);
+    }
+
+    private static ProjectConfiguration CreateProject(string repositoryPath, string yamlFile)
+    {
+        return new ProjectConfiguration
         {
             Repositories =
             [
                 new RepositoryConfiguration
                 {
-                    Name = "api-finops",
-                    Path = "C:\\Repos\\api-finops",
+                    Name = "sample-api",
+                    Path = repositoryPath,
                     DefaultBranch = "main"
                 }
             ],
@@ -24,7 +88,7 @@ public sealed class ProjectCheckServiceTests
             {
                 ["dev"] = new EnvironmentConfiguration
                 {
-                    YamlFiles = ["pipelines/deploy-dev.yml"],
+                    YamlFiles = [yamlFile],
                     Urls =
                     [
                         new UrlConfiguration
@@ -37,18 +101,6 @@ public sealed class ProjectCheckServiceTests
                 }
             }
         };
-
-        var service = new ProjectCheckService(
-            new StubRepositoryService(),
-            new StubYamlValidationService(),
-            new StubUrlHealthCheckService());
-
-        var result = await service.CheckAsync(project, "dev");
-
-        Assert.True(result.Success);
-        Assert.Equal(4, result.TotalChecks);
-        Assert.Equal(4, result.Successes);
-        Assert.Equal(0, result.Failures);
     }
 
     private sealed class StubRepositoryService : IRepositoryService
@@ -65,17 +117,50 @@ public sealed class ProjectCheckServiceTests
 
     private sealed class StubYamlValidationService : IYamlValidationService
     {
+        private readonly bool _success;
+
+        public StubYamlValidationService(bool success)
+        {
+            _success = success;
+        }
+
         public Task<YamlValidationResult> ValidateAsync(string path, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new YamlValidationResult(path, true, true, "YAML valido."));
+            return Task.FromResult(new YamlValidationResult(path, true, _success, _success ? "YAML valido." : "YAML invalido."));
+        }
+    }
+
+    private sealed class CapturingYamlValidationService : IYamlValidationService
+    {
+        private readonly bool _success;
+
+        public CapturingYamlValidationService(bool success)
+        {
+            _success = success;
+        }
+
+        public List<string> Paths { get; } = [];
+
+        public Task<YamlValidationResult> ValidateAsync(string path, CancellationToken cancellationToken = default)
+        {
+            Paths.Add(path);
+            return Task.FromResult(new YamlValidationResult(path, true, _success, _success ? "YAML valido." : "YAML invalido."));
         }
     }
 
     private sealed class StubUrlHealthCheckService : IUrlHealthCheckService
     {
+        private readonly bool _success;
+
+        public StubUrlHealthCheckService(bool success)
+        {
+            _success = success;
+        }
+
         public Task<UrlHealthCheckResult> CheckAsync(UrlConfiguration url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new UrlHealthCheckResult(url.Name, url.Url, true, 200, 84, false, "OK"));
+            var statusCode = _success ? 200 : 500;
+            return Task.FromResult(new UrlHealthCheckResult(url.Name, url.Url, _success, statusCode, 84, false, "OK"));
         }
     }
 }

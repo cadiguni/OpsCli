@@ -51,7 +51,7 @@ public sealed class YamlConfigurationService : IConfigurationService
         var resolvedPath = ResolveConfigurationPath(path);
         if (!File.Exists(resolvedPath))
         {
-            throw new FileNotFoundException($"Arquivo de configuracao nao encontrado: {resolvedPath}", resolvedPath);
+            throw new FileNotFoundException($"[ERRO] Arquivo de configuracao nao encontrado: {resolvedPath}{Environment.NewLine}Execute 'config init' para criar um arquivo de exemplo.", resolvedPath);
         }
 
         var yaml = await File.ReadAllTextAsync(resolvedPath, cancellationToken);

@@ -63,6 +63,6 @@ internal static class CommandHelpers
 
     public static void PrintResult(bool success, string message)
     {
-        Console.WriteLine($"{(success ? "✓" : "✗")} {message}");
+        Console.WriteLine($"{(success ? "[OK]" : "[FALHA]")} {message}");
     }
 }

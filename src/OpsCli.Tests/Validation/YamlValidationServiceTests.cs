@@ -28,6 +28,21 @@ public sealed class YamlValidationServiceTests
         Assert.False(result.IsValid);
     }
 
+    [Fact]
+    public async Task ValidateAsync_ReturnsFullPathWhenYamlDoesNotExist()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "opscli-tests", Guid.NewGuid().ToString("N"));
+        var missingFile = Path.Combine(directory, "pipelines", "deploy-dev.yml");
+        var service = new YamlValidationService();
+
+        var result = await service.ValidateAsync(missingFile);
+
+        Assert.False(result.Exists);
+        Assert.False(result.IsValid);
+        Assert.Contains("[ERRO] Arquivo YAML nao encontrado:", result.Message);
+        Assert.Contains(Path.GetFullPath(missingFile), result.Message);
+    }
+
     private static string CreateTempFile(string content)
     {
         var directory = Path.Combine(Path.GetTempPath(), "opscli-tests", Guid.NewGuid().ToString("N"));

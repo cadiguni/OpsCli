@@ -12,7 +12,7 @@ public sealed class YamlValidationService : IYamlValidationService
         var resolvedPath = Path.GetFullPath(path);
         if (!File.Exists(resolvedPath))
         {
-            return new YamlValidationResult(resolvedPath, false, false, "Arquivo YAML nao encontrado.");
+            return new YamlValidationResult(resolvedPath, false, false, $"[ERRO] Arquivo YAML nao encontrado:{Environment.NewLine}{resolvedPath}");
         }
 
         try

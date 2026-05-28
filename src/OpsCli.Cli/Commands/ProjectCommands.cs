@@ -71,7 +71,7 @@ public static class ProjectCommands
             Console.WriteLine($"Projeto: {projectName}");
             Console.WriteLine($"Descrição: {project.Description}");
             Console.WriteLine();
-            Console.WriteLine("Repositórios:");
+            Console.WriteLine("Repositorios:");
             foreach (var repository in project.Repositories)
             {
                 Console.WriteLine($"- {repository.Name}: {repository.Path}");
@@ -138,23 +138,46 @@ public static class ProjectCommands
                 return 1;
             }
 
+            if (CommandHelpers.GetEnvironment(project, environmentName) is null)
+            {
+                return 1;
+            }
+
             var service = services.GetRequiredService<ProjectCheckService>();
             var timeout = TimeSpan.FromSeconds(parseResult.GetValue(timeoutOption));
             var result = await service.CheckAsync(project, environmentName, timeout, cancellationToken);
 
             Console.WriteLine($"Project Check - {projectName} / {environmentName}");
             Console.WriteLine();
-            Console.WriteLine("Repositórios:");
+            Console.WriteLine("Repositorios:");
             foreach (var repository in result.Repositories)
             {
-                CommandHelpers.PrintResult(repository.Exists, $"{repository.Name} encontrado");
-                CommandHelpers.PrintResult(repository.IsGitRepository, "Repositório Git encontrado");
+                Console.WriteLine(repository.Exists
+                    ? $"[OK] {repository.Name} encontrado"
+                    : $"[FALHA] {repository.Name} nao encontrado");
+                if (!repository.Exists)
+                {
+                    Console.WriteLine(repository.Path);
+                    continue;
+                }
+
+                CommandHelpers.PrintResult(repository.IsGitRepository, "Repositorio Git encontrado");
+                if (!repository.IsGitRepository)
+                {
+                    if (!string.IsNullOrWhiteSpace(repository.Details))
+                    {
+                        Console.WriteLine(repository.Details);
+                    }
+
+                    continue;
+                }
+
                 if (repository.IsGitRepository)
                 {
                     CommandHelpers.PrintResult(true, $"Branch atual: {repository.Branch}");
                     if (repository.HasChanges)
                     {
-                        Console.WriteLine("⚠ Existem alterações locais não commitadas:");
+                        Console.WriteLine("[AVISO] Existem alteracoes locais nao commitadas:");
                         foreach (var line in repository.Details.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                         {
                             Console.WriteLine($"  {line}");
@@ -162,7 +185,7 @@ public static class ProjectCommands
                     }
                     else
                     {
-                        CommandHelpers.PrintResult(true, "Sem alterações locais");
+                        CommandHelpers.PrintResult(true, "Sem alteracoes locais");
                     }
                 }
             }
@@ -172,7 +195,7 @@ public static class ProjectCommands
             foreach (var yaml in result.YamlFiles)
             {
                 var displayPath = DisplayYamlPath(project, yaml.Path);
-                CommandHelpers.PrintResult(yaml.Exists && yaml.IsValid, $"{displayPath} {(yaml.Exists && yaml.IsValid ? "válido" : yaml.Message)}");
+                CommandHelpers.PrintResult(yaml.Exists && yaml.IsValid, $"{displayPath} {(yaml.Exists && yaml.IsValid ? "valido" : yaml.Message)}");
             }
 
             Console.WriteLine();
@@ -185,7 +208,7 @@ public static class ProjectCommands
 
             Console.WriteLine();
             Console.WriteLine("Resumo:");
-            Console.WriteLine($"Verificações executadas: {result.TotalChecks}");
+            Console.WriteLine($"Verificacoes executadas: {result.TotalChecks}");
             Console.WriteLine($"Sucessos: {result.Successes}");
             Console.WriteLine($"Falhas: {result.Failures}");
             Console.WriteLine();

@@ -34,14 +34,14 @@ public static class RepoCommands
             var statuses = await repositoryService.GetStatusesAsync(repositories, cancellationToken);
             foreach (var status in statuses)
             {
-                Console.WriteLine($"Repositório: {status.Name}");
+                Console.WriteLine($"Repositorio: {status.Name}");
                 Console.WriteLine($"Caminho: {status.Path}");
                 Console.WriteLine();
 
-                CommandHelpers.PrintResult(status.Exists, "Diretório encontrado");
+                CommandHelpers.PrintResult(status.Exists, "Diretorio encontrado");
                 if (status.Exists)
                 {
-                    CommandHelpers.PrintResult(status.IsGitRepository, "Repositório Git encontrado");
+                    CommandHelpers.PrintResult(status.IsGitRepository, "Repositorio Git encontrado");
                 }
 
                 if (status.Exists && status.IsGitRepository)
@@ -49,7 +49,7 @@ public static class RepoCommands
                     Console.WriteLine($"Branch atual: {status.Branch}");
                     if (status.HasChanges)
                     {
-                        Console.WriteLine("⚠ Existem alterações locais não commitadas:");
+                        Console.WriteLine("[AVISO] Existem alteracoes locais nao commitadas:");
                         foreach (var line in status.Details.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                         {
                             Console.WriteLine($"  {line}");
@@ -62,7 +62,9 @@ public static class RepoCommands
                 }
                 else if (!string.IsNullOrWhiteSpace(status.Details))
                 {
-                    Console.WriteLine(status.Details);
+                    Console.WriteLine(status.Exists
+                        ? status.Details
+                        : $"[ERRO] Diretorio do repositorio nao encontrado:{Environment.NewLine}{status.Path}");
                 }
 
                 Console.WriteLine();

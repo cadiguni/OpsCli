@@ -31,33 +31,42 @@ Em rotinas de DevOps, e comum alternar entre arquivos YAML, diretorios de reposi
 - `src/OpsCli.Tests`: testes unitarios.
 - `samples/opscli.example.yml`: configuracao de exemplo.
 
-## Comandos Do MVP
+## Como Executar Em Desenvolvimento
 
 ```powershell
+dotnet build
+dotnet test
+
 dotnet run --project src/OpsCli.Cli -- config init
 dotnet run --project src/OpsCli.Cli -- project list
-dotnet run --project src/OpsCli.Cli -- project show api-finops
-dotnet run --project src/OpsCli.Cli -- project show api-finops --env dev
-dotnet run --project src/OpsCli.Cli -- repos status --project api-finops
-dotnet run --project src/OpsCli.Cli -- yaml validate --file pipelines/deploy-dev.yml
-dotnet run --project src/OpsCli.Cli -- yaml validate-all --project api-finops --env dev
-dotnet run --project src/OpsCli.Cli -- urls check --project api-finops --env dev
-dotnet run --project src/OpsCli.Cli -- project check api-finops --env dev
+dotnet run --project src/OpsCli.Cli -- project show sample-api --env dev
+dotnet run --project src/OpsCli.Cli -- repos status --project sample-api
+dotnet run --project src/OpsCli.Cli -- yaml validate-all --project sample-api --env dev
+dotnet run --project src/OpsCli.Cli -- urls check --project sample-api --env dev
+dotnet run --project src/OpsCli.Cli -- project check sample-api --env dev
 ```
 
 Comandos que leem configuracao aceitam `--config <path>`. Sem esse parametro, a CLI procura `opscli.yml` no diretorio atual.
 
-## Exemplo De opscli.yml
+## Configuracao Local
+
+`opscli.yml` e a configuracao local da maquina. Ele pode conter caminhos de repositorios, nomes de projetos e URLs internas, portanto nao deve ser commitado. O arquivo esta no `.gitignore`.
+
+Use `dotnet run --project src/OpsCli.Cli -- config init` para gerar um `opscli.yml` no diretorio atual, ou copie `samples/opscli.example.yml`. Depois substitua os projetos, caminhos e URLs pelos dados do seu ambiente.
+
+`samples/opscli.example.yml` e apenas um modelo generico versionado. Ele nao deve conter dados reais de clientes, URLs internas, subscriptions ou caminhos corporativos.
+
+Exemplo generico:
 
 ```yaml
-workspace: "C:\\Repos"
+workspace: "C:\\Projetos\\Repos"
 
 projects:
-  api-finops:
-    description: "API de analise de custos Azure"
+  sample-api:
+    description: "API de exemplo"
     repositories:
-      - name: "api-finops"
-        path: "C:\\Repos\\api-finops"
+      - name: "sample-api"
+        path: "C:\\Projetos\\Repos\\sample-api"
         defaultBranch: "main"
 
     environments:
@@ -66,23 +75,9 @@ projects:
           - "pipelines/deploy-dev.yml"
         urls:
           - name: "Health API"
-            url: "https://localhost:7071/api/health"
+            url: "https://api-dev.exemplo.com/health"
             expectedStatusCodes:
               - 200
-```
-
-## Como Executar Localmente
-
-```powershell
-dotnet restore
-dotnet build
-dotnet run --project src/OpsCli.Cli -- project list --config samples/opscli.example.yml
-```
-
-## Como Executar Testes
-
-```powershell
-dotnet test OpsCli.sln
 ```
 
 ## Roadmap
@@ -93,11 +88,10 @@ dotnet test OpsCli.sln
 - [x] Verificacao de URLs
 - [x] Status de repositorios Git
 - [x] Project Check consolidado
-- [ ] Git clone e git pull seguro
-- [ ] Integracao com Azure DevOps Pipelines
+- [ ] Integracao read-only com Azure DevOps Pipelines
 - [ ] Consulta de Variable Groups / Libraries
 - [ ] Diagnostico de execucao com falha
-- [ ] Diff entre ambientes
+- [ ] Git clone e git pull seguro
 - [ ] Consulta de recursos Azure
 - [ ] Deploy preflight
 - [ ] Relatorios Markdown e HTML

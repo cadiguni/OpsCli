@@ -56,7 +56,10 @@ public sealed class YamlConfigurationServiceTests
         var service = new YamlConfigurationService();
         var missingPath = Path.Combine(Path.GetTempPath(), "opscli-tests", Guid.NewGuid().ToString("N"), "opscli.yml");
 
-        await Assert.ThrowsAsync<FileNotFoundException>(() => service.LoadAsync(missingPath));
+        var exception = await Assert.ThrowsAsync<FileNotFoundException>(() => service.LoadAsync(missingPath));
+        Assert.Contains("[ERRO] Arquivo de configuracao nao encontrado:", exception.Message);
+        Assert.Contains(missingPath, exception.Message);
+        Assert.Contains("Execute 'config init' para criar um arquivo de exemplo.", exception.Message);
     }
 
     private static string CreateTempDirectory()

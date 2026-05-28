@@ -40,6 +40,24 @@ public sealed class UrlHealthCheckServiceTests
         Assert.Equal(500, result.StatusCode);
     }
 
+    [Fact]
+    public async Task CheckAsync_ReturnsFailureWhenRequestTimesOut()
+    {
+        var service = new UrlHealthCheckService(new HttpClient(new TimeoutHandler()));
+        var url = new UrlConfiguration
+        {
+            Name = "Health",
+            Url = "https://example.test/health",
+            ExpectedStatusCodes = [200]
+        };
+
+        var result = await service.CheckAsync(url, TimeSpan.FromMilliseconds(10));
+
+        Assert.False(result.Success);
+        Assert.True(result.TimedOut);
+        Assert.Null(result.StatusCode);
+    }
+
     private sealed class StaticResponseHandler : HttpMessageHandler
     {
         private readonly HttpStatusCode _statusCode;
@@ -52,6 +70,15 @@ public sealed class UrlHealthCheckServiceTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             return Task.FromResult(new HttpResponseMessage(_statusCode));
+        }
+    }
+
+    private sealed class TimeoutHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK);
         }
     }
 }

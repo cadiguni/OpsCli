@@ -11,7 +11,7 @@ public sealed class ProjectConfigurationResolver
             return LookupResult<ProjectConfiguration>.Found(project);
         }
 
-        return LookupResult<ProjectConfiguration>.NotFound($"Projeto nao encontrado: {projectName}");
+        return LookupResult<ProjectConfiguration>.NotFound($"[ERRO] Projeto nao encontrado: {projectName}");
     }
 
     public LookupResult<EnvironmentConfiguration> GetEnvironment(ProjectConfiguration project, string environmentName)
@@ -21,6 +21,6 @@ public sealed class ProjectConfigurationResolver
             return LookupResult<EnvironmentConfiguration>.Found(environment);
         }
 
-        return LookupResult<EnvironmentConfiguration>.NotFound($"Ambiente nao encontrado: {environmentName}");
+        return LookupResult<EnvironmentConfiguration>.NotFound($"[ERRO] Ambiente nao encontrado: {environmentName}");
     }
 }
