@@ -27,9 +27,10 @@ public static class DependencyInjection
         services.AddSingleton<IYamlValidationService, YamlValidationService>();
         services.AddHttpClient<IUrlHealthCheckService, UrlHealthCheckService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = Timeout.InfiniteTimeSpan;
         });
         services.AddSingleton<ProjectCheckService>();
+        services.AddSingleton<ProjectConfigurationResolver>();
 
         return services.BuildServiceProvider();
     }

@@ -69,12 +69,12 @@ public static class ProjectCommands
             }
 
             Console.WriteLine($"Projeto: {projectName}");
-            Console.WriteLine($"Descricao: {project.Description}");
+            Console.WriteLine($"Descrição: {project.Description}");
             Console.WriteLine();
-            Console.WriteLine("Repositorios:");
+            Console.WriteLine("Repositórios:");
             foreach (var repository in project.Repositories)
             {
-                Console.WriteLine($"- {repository.Name} | {repository.Path} | branch padrao: {repository.DefaultBranch}");
+                Console.WriteLine($"- {repository.Name}: {repository.Path}");
             }
 
             var environmentName = parseResult.GetValue(envOption);
@@ -88,7 +88,8 @@ public static class ProjectCommands
 
                 Console.WriteLine();
                 Console.WriteLine($"Ambiente: {environmentName}");
-                Console.WriteLine("YAML:");
+                Console.WriteLine();
+                Console.WriteLine("Arquivos YAML:");
                 foreach (var yamlFile in environment.YamlFiles)
                 {
                     Console.WriteLine($"- {yamlFile}");
@@ -97,7 +98,7 @@ public static class ProjectCommands
                 Console.WriteLine("URLs:");
                 foreach (var url in environment.Urls)
                 {
-                    Console.WriteLine($"- {url.Name}: {url.Url} (esperado: {string.Join(", ", url.ExpectedStatusCodes)})");
+                    Console.WriteLine($"- {url.Name}: {url.Url}");
                 }
             }
 
@@ -110,10 +111,16 @@ public static class ProjectCommands
     {
         var projectArgument = new Argument<string>("name");
         var envOption = new Option<string>("--env") { Required = true, Description = "Ambiente do projeto." };
+        var timeoutOption = new Option<int>("--timeout-seconds")
+        {
+            Description = "Timeout das verificações HTTP em segundos."
+        };
+        timeoutOption.DefaultValueFactory = _ => 5;
         var configOption = ConfigOption();
         var command = new Command("check", "Executa verificacoes principais de repositorios, YAML e URLs.");
         command.Add(projectArgument);
         command.Add(envOption);
+        command.Add(timeoutOption);
         command.Add(configOption);
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -132,13 +139,61 @@ public static class ProjectCommands
             }
 
             var service = services.GetRequiredService<ProjectCheckService>();
-            var results = await service.CheckAsync(project, environmentName, cancellationToken);
-            foreach (var result in results)
+            var timeout = TimeSpan.FromSeconds(parseResult.GetValue(timeoutOption));
+            var result = await service.CheckAsync(project, environmentName, timeout, cancellationToken);
+
+            Console.WriteLine($"Project Check - {projectName} / {environmentName}");
+            Console.WriteLine();
+            Console.WriteLine("Repositórios:");
+            foreach (var repository in result.Repositories)
             {
-                CommandHelpers.PrintResult(result.Success, $"{result.Name}: {result.Message}");
+                CommandHelpers.PrintResult(repository.Exists, $"{repository.Name} encontrado");
+                CommandHelpers.PrintResult(repository.IsGitRepository, "Repositório Git encontrado");
+                if (repository.IsGitRepository)
+                {
+                    CommandHelpers.PrintResult(true, $"Branch atual: {repository.Branch}");
+                    if (repository.HasChanges)
+                    {
+                        Console.WriteLine("⚠ Existem alterações locais não commitadas:");
+                        foreach (var line in repository.Details.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            Console.WriteLine($"  {line}");
+                        }
+                    }
+                    else
+                    {
+                        CommandHelpers.PrintResult(true, "Sem alterações locais");
+                    }
+                }
             }
 
-            return results.All(result => result.Success) ? 0 : 1;
+            Console.WriteLine();
+            Console.WriteLine("YAML:");
+            foreach (var yaml in result.YamlFiles)
+            {
+                var displayPath = DisplayYamlPath(project, yaml.Path);
+                CommandHelpers.PrintResult(yaml.Exists && yaml.IsValid, $"{displayPath} {(yaml.Exists && yaml.IsValid ? "válido" : yaml.Message)}");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("URLs:");
+            foreach (var url in result.Urls)
+            {
+                var status = url.StatusCode?.ToString() ?? (url.TimedOut ? "Timeout" : "Falha");
+                CommandHelpers.PrintResult(url.Success, $"{url.Name} respondeu {status} em {url.ElapsedMilliseconds} ms");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Resumo:");
+            Console.WriteLine($"Verificações executadas: {result.TotalChecks}");
+            Console.WriteLine($"Sucessos: {result.Successes}");
+            Console.WriteLine($"Falhas: {result.Failures}");
+            Console.WriteLine();
+            Console.WriteLine(result.Success
+                ? "Resultado: projeto válido."
+                : "Resultado: projeto possui falhas que precisam ser corrigidas.");
+
+            return result.Success ? 0 : 1;
         });
         return command;
     }
@@ -147,4 +202,16 @@ public static class ProjectCommands
     {
         Description = "Caminho do arquivo opscli.yml."
     };
+
+    private static string DisplayYamlPath(global::OpsCli.Core.Models.ProjectConfiguration project, string path)
+    {
+        var repositoryPath = project.Repositories.FirstOrDefault()?.Path;
+        if (string.IsNullOrWhiteSpace(repositoryPath))
+        {
+            return path;
+        }
+
+        var relativePath = Path.GetRelativePath(repositoryPath, path);
+        return relativePath.StartsWith("..", StringComparison.Ordinal) ? path : relativePath;
+    }
 }

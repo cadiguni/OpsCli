@@ -50,6 +50,15 @@ public sealed class YamlConfigurationServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateSampleConfigurationAsync(configPath));
     }
 
+    [Fact]
+    public async Task LoadAsync_ThrowsWhenConfigurationDoesNotExist()
+    {
+        var service = new YamlConfigurationService();
+        var missingPath = Path.Combine(Path.GetTempPath(), "opscli-tests", Guid.NewGuid().ToString("N"), "opscli.yml");
+
+        await Assert.ThrowsAsync<FileNotFoundException>(() => service.LoadAsync(missingPath));
+    }
+
     private static string CreateTempDirectory()
     {
         var directory = Path.Combine(Path.GetTempPath(), "opscli-tests", Guid.NewGuid().ToString("N"));

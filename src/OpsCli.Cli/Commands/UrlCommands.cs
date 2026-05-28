@@ -46,26 +46,37 @@ public static class UrlCommands
     {
         var projectOption = ProjectOption();
         var envOption = EnvOption();
+        var timeoutOption = TimeoutOption();
         var configOption = ConfigOption();
         var command = new Command("check", "Verifica URLs cadastradas para um ambiente.");
         command.Add(projectOption);
         command.Add(envOption);
+        command.Add(timeoutOption);
         command.Add(configOption);
         command.SetAction(async (parseResult, cancellationToken) =>
         {
-            var environment = await LoadEnvironmentAsync(services, parseResult.GetRequiredValue(projectOption), parseResult.GetRequiredValue(envOption), parseResult.GetValue(configOption), cancellationToken);
+            var projectName = parseResult.GetRequiredValue(projectOption);
+            var environmentName = parseResult.GetRequiredValue(envOption);
+            var environment = await LoadEnvironmentAsync(services, projectName, environmentName, parseResult.GetValue(configOption), cancellationToken);
             if (environment is null)
             {
                 return 1;
             }
 
+            Console.WriteLine($"Verificação de URLs - {projectName} / {environmentName}");
+            Console.WriteLine();
+            Console.WriteLine($"{"URL",-44} {"Status",-10} {"Tempo",-10} Resultado");
+
             var healthCheck = services.GetRequiredService<IUrlHealthCheckService>();
             var allHealthy = true;
+            var timeout = TimeSpan.FromSeconds(parseResult.GetValue(timeoutOption));
             foreach (var url in environment.Urls)
             {
-                var result = await healthCheck.CheckAsync(url, cancellationToken);
+                var result = await healthCheck.CheckAsync(url, timeout, cancellationToken);
                 allHealthy &= result.Success;
-                CommandHelpers.PrintResult(result.Success, result.Message);
+                var status = result.StatusCode?.ToString() ?? (result.TimedOut ? "Timeout" : "Falha");
+                var outcome = result.Success ? "✓ OK" : "✗ Falha";
+                Console.WriteLine($"{url.Name,-44} {status,-10} {$"{result.ElapsedMilliseconds} ms",-10} {outcome}");
             }
 
             return allHealthy ? 0 : 1;
@@ -73,7 +84,7 @@ public static class UrlCommands
         return command;
     }
 
-    private static async Task<Core.Models.EnvironmentConfiguration?> LoadEnvironmentAsync(
+    private static async Task<global::OpsCli.Core.Models.EnvironmentConfiguration?> LoadEnvironmentAsync(
         IServiceProvider services,
         string projectName,
         string environmentName,
@@ -106,4 +117,14 @@ public static class UrlCommands
     {
         Description = "Caminho do arquivo opscli.yml."
     };
+
+    private static Option<int> TimeoutOption()
+    {
+        var option = new Option<int>("--timeout-seconds")
+        {
+            Description = "Timeout das requisições HTTP em segundos."
+        };
+        option.DefaultValueFactory = _ => 5;
+        return option;
+    }
 }

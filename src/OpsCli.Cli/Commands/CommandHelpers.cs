@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using OpsCli.Core.Interfaces;
 using OpsCli.Core.Models;
+using OpsCli.Core.Services;
 
 namespace OpsCli.Cli.Commands;
 
@@ -26,23 +27,27 @@ internal static class CommandHelpers
 
     public static ProjectConfiguration? GetProject(OpsCliConfiguration configuration, string projectName)
     {
-        if (configuration.Projects.TryGetValue(projectName, out var project))
+        var resolver = new ProjectConfigurationResolver();
+        var result = resolver.GetProject(configuration, projectName);
+        if (result.Success)
         {
-            return project;
+            return result.Value;
         }
 
-        Console.Error.WriteLine($"Projeto nao encontrado: {projectName}");
+        Console.Error.WriteLine(result.Message);
         return null;
     }
 
     public static EnvironmentConfiguration? GetEnvironment(ProjectConfiguration project, string environmentName)
     {
-        if (project.Environments.TryGetValue(environmentName, out var environment))
+        var resolver = new ProjectConfigurationResolver();
+        var result = resolver.GetEnvironment(project, environmentName);
+        if (result.Success)
         {
-            return environment;
+            return result.Value;
         }
 
-        Console.Error.WriteLine($"Ambiente nao encontrado: {environmentName}");
+        Console.Error.WriteLine(result.Message);
         return null;
     }
 
@@ -58,6 +63,6 @@ internal static class CommandHelpers
 
     public static void PrintResult(bool success, string message)
     {
-        Console.WriteLine($"{(success ? "[OK]" : "[FAIL]")} {message}");
+        Console.WriteLine($"{(success ? "✓" : "✗")} {message}");
     }
 }

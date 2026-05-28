@@ -19,39 +19,30 @@ public sealed class ProjectCheckService
         _urlHealthCheckService = urlHealthCheckService;
     }
 
-    public async Task<IReadOnlyList<CheckResult>> CheckAsync(ProjectConfiguration project, string environmentName, CancellationToken cancellationToken = default)
+    public async Task<ProjectCheckResult> CheckAsync(ProjectConfiguration project, string environmentName, TimeSpan? urlTimeout = null, CancellationToken cancellationToken = default)
     {
         if (!project.Environments.TryGetValue(environmentName, out var environment))
         {
-            return [new CheckResult("environment", false, $"Ambiente nao encontrado: {environmentName}")];
+            throw new InvalidOperationException($"Ambiente nao encontrado: {environmentName}");
         }
-
-        var results = new List<CheckResult>();
 
         var repositoryStatuses = await _repositoryService.GetStatusesAsync(project.Repositories, cancellationToken);
-        foreach (var status in repositoryStatuses)
-        {
-            var success = status.Exists && status.IsGitRepository;
-            var message = success
-                ? $"Repositorio encontrado em {status.Path}. Branch: {status.Branch}. Alteracoes: {(status.HasChanges ? "sim" : "nao")}."
-                : status.Details;
-
-            results.Add(new CheckResult($"repo:{status.Name}", success, message));
-        }
+        var yamlResults = new List<YamlValidationResult>();
+        var urlResults = new List<UrlHealthCheckResult>();
 
         foreach (var yamlFile in environment.YamlFiles)
         {
             var validation = await _yamlValidationService.ValidateAsync(ResolveYamlPath(project, yamlFile), cancellationToken);
-            results.Add(new CheckResult($"yaml:{yamlFile}", validation.Exists && validation.IsValid, validation.Message));
+            yamlResults.Add(validation);
         }
 
         foreach (var url in environment.Urls)
         {
-            var health = await _urlHealthCheckService.CheckAsync(url, cancellationToken);
-            results.Add(new CheckResult($"url:{url.Name}", health.Success, health.Message));
+            var health = await _urlHealthCheckService.CheckAsync(url, urlTimeout, cancellationToken);
+            urlResults.Add(health);
         }
 
-        return results;
+        return new ProjectCheckResult(repositoryStatuses, yamlResults, urlResults);
     }
 
     private static string ResolveYamlPath(ProjectConfiguration project, string yamlFile)
